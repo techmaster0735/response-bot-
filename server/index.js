@@ -211,17 +211,82 @@ app.post("/api/analyze",async(req,res)=>{
   }catch(e){res.status(400).json({ok:false,error:e.message})}
 });
 
-function heuristic(q,i){
+function randomBetween(min,max){
+  return min + Math.random()*(max-min);
+}
+
+function shuffled(arr){
+  return [...arr].sort(()=>Math.random()-0.5);
+}
+
+// Build a different, intentionally uneven probability distribution for each
+// categorical question. This avoids the old round-robin 25/25/25/25 pattern.
+function buildNaturalDistributions(questions){
+  const distributions={};
+  for(const q of questions){
+    if(!Array.isArray(q.options)||q.options.length<2) continue;
+
+    const count=q.options.length;
+    // Random weights are drawn from a broad range so each option can receive
+    // a noticeably different share, while no option is permanently favored.
+    let weights=q.options.map(()=>randomBetween(0.25,2.75));
+    const total=weights.reduce((a,b)=>a+b,0);
+    weights=weights.map(w=>w/total);
+
+    // Shuffle the weights so the first option is not systematically favored.
+    weights=shuffled(weights);
+    distributions[q.id]=q.options.map((option,index)=>({
+      value:option.value,
+      weight:weights[index]
+    }));
+  }
+  return distributions;
+}
+
+function weightedChoice(q,distribution){
+  const options=Array.isArray(q.options)?q.options:[];
+  if(!options.length) return "";
+  if(!distribution?.length) return options[Math.floor(Math.random()*options.length)].value;
+
+  let r=Math.random();
+  for(const item of distribution){
+    r-=item.weight;
+    if(r<=0) return item.value;
+  }
+  return distribution[distribution.length-1].value;
+}
+
+function heuristic(q,i,distributions={}){
   const t=q.title.toLowerCase();
-  if(q.options?.length)return q.multiple?[q.options[i%q.options.length].value]:q.options[i%q.options.length].value;
-  if(q.type==="email")return `synthetic.${i+1}@example.test`;
-  if(q.type==="number")return String(18+(i*7)%43);
+  if(q.options?.length){
+    if(q.multiple){
+      // Keep checkbox responses varied without forcing every respondent to
+      // select the same number of boxes.
+      const picked=[];
+      const shuffledOptions=shuffled(q.options);
+      for(const option of shuffledOptions){
+        if(Math.random()<0.35) picked.push(option.value);
+      }
+      return picked.length ? picked : [weightedChoice(q,distributions[q.id])];
+    }
+    return weightedChoice(q,distributions[q.id]);
+  }
+  if(q.type==="email")return `synthetic.${Math.floor(Math.random()*1000000)}@example.test`;
+  if(q.type==="number")return String(18+Math.floor(Math.random()*43));
   if(/name|full name/.test(t))return name();
-  if(/city|location|place/.test(t))return ["Mumbai","Pune","Nashik","Thane","Nagpur"][i%5];
-  if(/age/.test(t))return String(18+(i*5)%35);
-  if(/phone|mobile/.test(t))return `90000${String(10000+i).slice(-5)}`;
-  const a=["This is a synthetic test response.","The form was clear and easy to complete.","This answer is generated for controlled testing.","Everything worked as expected.","This is a varied sample response."];
-  return a[i%a.length];
+  if(/city|location|place/.test(t))return pick(["Mumbai","Pune","Nashik","Thane","Nagpur","Surat","Ahmedabad","Bengaluru"]);
+  if(/age/.test(t))return String(18+Math.floor(Math.random()*35));
+  if(/phone|mobile/.test(t))return `90000${String(Math.floor(10000+Math.random()*90000))}`;
+  const a=[
+    "This is a synthetic test response.",
+    "The form was clear and easy to complete.",
+    "This answer is generated for controlled testing.",
+    "Everything worked as expected.",
+    "This is a varied sample response.",
+    "The question was straightforward.",
+    "This response is part of a controlled test."
+  ];
+  return a[Math.floor(Math.random()*a.length)];
 }
 
 async function aiGenerate(questions,count){
@@ -243,17 +308,50 @@ app.post("/api/generate",async(req,res)=>{
     const {questions=[],count=10}=req.body||{};
     if(!Array.isArray(questions)||questions.length>200) throw new Error("Invalid question list.");
     const n=Math.min(500,Math.max(1,Number(count)||1));
+    const distributions=buildNaturalDistributions(questions);
     let responses=null;
     if(process.env.OPENAI_API_KEY){
       try{responses=await aiGenerate(questions,n)}catch(_){}
     }
+
     if(!Array.isArray(responses)||responses.length!==n){
       responses=Array.from({length:n},(_,i)=>({
         respondent:name(),
-        answers:Object.fromEntries(questions.map(q=>[q.id,heuristic(q,i)]))
+        answers:Object.fromEntries(questions.map(q=>[q.id,heuristic(q,i,distributions)]))
+      }));
+    }else{
+      // Keep AI-generated free-text answers, but normalize categorical fields
+      // through the same natural random distributions so they cannot collapse
+      // into an artificial equal split.
+      responses=responses.map((response,i)=>({
+        respondent:response.respondent||name(),
+        answers:Object.fromEntries(questions.map(q=>{
+          if(Array.isArray(q.options)&&q.options.length){
+            return [q.id, q.multiple
+              ? heuristic(q,i,distributions)
+              : weightedChoice(q,distributions[q.id])];
+          }
+          return [q.id,response.answers?.[q.id] ?? heuristic(q,i,distributions)];
+        }))
       }));
     }
-    res.json({ok:true,responses,ai:!!process.env.OPENAI_API_KEY});
+
+    const distributionSummary=Object.fromEntries(
+      questions
+        .filter(q=>Array.isArray(q.options)&&q.options.length>1)
+        .map(q=>[q.id,(distributions[q.id]||[]).map(x=>({
+          value:x.value,
+          percent:Math.round(x.weight*100)
+        }))])
+    );
+
+    res.json({
+      ok:true,
+      responses,
+      ai:!!process.env.OPENAI_API_KEY,
+      distributionMode:"natural-random",
+      distributionSummary
+    });
   }catch(e){res.status(500).json({ok:false,error:e.message})}
 });
 

@@ -8,6 +8,9 @@
 - Optional OpenAI generation through `OPENAI_API_KEY`.
 - Sends ordinary form POSTs to the configured Google Form test target.
 - CSV export.
+- Natural-random categorical distributions: each generation creates fresh uneven weights per choice question instead of deterministic round-robin splits.
+- Preview now shows the generated distribution for each categorical question before submission.
+- Refreshed responsive UI with a clearer workflow, status cards, and generation details.
 - Restrictive CSP without `unsafe-eval`.
 - No CAPTCHA bypassing, anti-abuse evasion, proxy rotation, or mechanisms intended to make synthetic data look like genuine participants.
 

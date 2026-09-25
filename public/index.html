@@ -1,12 +1,184 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Form Test Bot</title><link rel="stylesheet" href="/style.css"></head><body>
-<div class="app"><aside class="side"><div class="brand">AI FORM <span>TEST BOT</span></div><div class="nav">
-<button class="active" data-screen="dashboard">Dashboard</button><button data-screen="analyzer">Form Analyzer</button><button data-screen="generator">Response Generator</button><button data-screen="preview">Preview</button><button data-screen="submission">Test Submission</button><button data-screen="results">Results</button></div></aside>
-<main class="main"><div class="top"><div><div class="eyebrow">Controlled testing</div><div class="title" id="screenTitle">Dashboard</div><div class="subtitle">Synthetic testing for forms you control.</div></div><div class="badge">TEST / SYNTHETIC</div></div>
-<section id="dashboard" class="screen"><div class="grid"><div class="card"><div class="label">Form pages</div><div id="statPages" class="stat">—</div></div><div class="card"><div class="label">Questions</div><div id="statQuestions" class="stat">—</div></div><div class="card"><div class="label">Responses</div><div id="statResponses" class="stat">0</div></div><div class="card"><div class="label">Status</div><div id="statStatus" class="stat">Ready</div></div></div>
-<div class="panel"><h2>Start test</h2><div class="field"><label>Google Form responder URL</label><input id="formUrl" value="https://docs.google.com/forms/d/e/1FAIpQLSdxcvVfPusQE0mh7cwcTs5-cMaljThev7JxorKqYKy3NrUNBQ/viewform" placeholder="https://docs.google.com/forms/d/e/.../viewform"></div><div class="row"><div class="field"><label>Number of responses</label><input id="count" type="number" min="1" max="500" value="50"></div><div class="field"><label>Delay (ms)</label><input id="delay" type="number" min="100" max="10000" value="1000"></div></div><label class="check"><input type="checkbox" checked> Indian synthetic names only</label><label class="check"><input type="checkbox" checked> Preview before submission</label><div class="actions"><button class="btn primary" id="analyzeBtn">Analyze Form</button></div><div id="dashMsg" class="notice"></div></div></section>
-<section id="analyzer" class="screen hidden"><div class="panel"><h2>Form Analyzer</h2><div id="analysisState" class="notice">No form analyzed.</div><table class="table"><thead><tr><th>#</th><th>Question</th><th>Type</th><th>Required</th></tr></thead><tbody id="questionRows"></tbody></table><div class="actions" style="margin-top:18px"><button class="btn primary" id="toGeneratorBtn">Generate Responses</button></div></div></section>
-<section id="generator" class="screen hidden"><div class="panel"><h2>AI Response Generator</h2><p class="muted">Responses are explicitly synthetic. If OPENAI_API_KEY is configured, the server can use the selected OpenAI model for richer consistency.</p><button class="btn primary" id="generateBtn">Generate</button> <span id="genMsg" class="muted"></span></div></section>
-<section id="preview" class="screen hidden"><div class="panel"><h2>Preview</h2><p class="muted">Review before submitting.</p><div id="previewList"></div><div class="actions"><button class="btn primary" id="toSubmissionBtn">Continue to Test Submission</button></div></div></section>
-<section id="submission" class="screen hidden"><div class="panel"><h2>Test Submission</h2><div id="submitState" class="notice">Ready.</div><div class="progress"><div id="bar" class="bar"></div></div><div id="progressText">0 / 0 processed</div><div class="actions" style="margin-top:18px"><button id="runBtn" class="btn primary">Run Test</button><button id="stopBtn" class="btn danger" disabled>Stop</button></div></div></section>
-<section id="results" class="screen hidden"><div class="grid"><div class="card"><div class="label">Requested</div><div id="rRequested" class="stat">0</div></div><div class="card"><div class="label">Successful</div><div id="rSuccess" class="stat success">0</div></div><div class="card"><div class="label">Failed</div><div id="rFailed" class="stat error">0</div></div><div class="card"><div class="label">Mode</div><div class="stat">TEST</div></div></div><div class="panel"><div id="resultError" class="notice error"></div><div class="actions"><button id="csvBtn" class="btn secondary">Export CSV</button><button id="againBtn" class="btn primary">Run Another Test</button></div></div></section>
-</main></div><script src="/app.js" defer></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="AI Form Test Bot — controlled synthetic testing for forms you control.">
+  <title>AI Form Test Bot</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark">AI</div>
+      <div><div class="brand-name">FORM TEST</div><div class="brand-sub">BOT</div></div>
+    </div>
+
+    <div class="side-label">WORKFLOW</div>
+    <nav class="nav">
+      <button class="active" data-screen="dashboard"><span>01</span> Dashboard</button>
+      <button data-screen="analyzer"><span>02</span> Form Analyzer</button>
+      <button data-screen="generator"><span>03</span> Response Generator</button>
+      <button data-screen="preview"><span>04</span> Preview</button>
+      <button data-screen="submission"><span>05</span> Test Submission</button>
+      <button data-screen="results"><span>06</span> Results</button>
+    </nav>
+
+    <div class="side-foot">
+      <div class="status-dot"></div>
+      <div><strong>TEST MODE</strong><small>Synthetic responses only</small></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="eyebrow">Controlled testing workspace</div>
+        <div class="title" id="screenTitle">Dashboard</div>
+        <div class="subtitle">Analyze, generate, preview and submit synthetic form test data.</div>
+      </div>
+      <div class="top-badges">
+        <span class="badge">● LIVE WORKSPACE</span>
+        <span class="badge gold">SYNTHETIC</span>
+      </div>
+    </header>
+
+    <section id="dashboard" class="screen">
+      <div class="hero">
+        <div class="hero-copy">
+          <div class="hero-kicker">AI FORM TEST BOT</div>
+          <h1>Test your form with <span>naturally varied</span> synthetic data.</h1>
+          <p>Generate controlled responses without the artificial 25/25/25/25 pattern. Categorical answers use a fresh uneven random distribution for every generation.</p>
+          <div class="hero-tags"><span>Multi-page forms</span><span>Natural-random distribution</span><span>Preview first</span></div>
+        </div>
+        <div class="hero-orb"><div class="orb-inner">AI<br><small>TEST</small></div></div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><div class="label">Form pages</div><div id="statPages" class="stat">—</div><div class="card-line"></div></div>
+        <div class="card"><div class="label">Questions</div><div id="statQuestions" class="stat">—</div><div class="card-line"></div></div>
+        <div class="card"><div class="label">Responses</div><div id="statResponses" class="stat">0</div><div class="card-line"></div></div>
+        <div class="card"><div class="label">Status</div><div id="statStatus" class="stat stat-small">Ready</div><div class="card-line"></div></div>
+      </div>
+
+      <div class="panel start-panel">
+        <div class="panel-heading">
+          <div><span class="section-kicker">STEP 01</span><h2>Start a test</h2></div>
+          <span class="panel-icon">↗</span>
+        </div>
+
+        <div class="field">
+          <label>Google Form responder URL</label>
+          <input id="formUrl" value="https://docs.google.com/forms/d/e/1FAIpQLSdxcvVfPusQE0mh7cwcTs5-cMaljThev7JxorKqYKy3NrUNBQ/viewform" placeholder="https://docs.google.com/forms/d/e/.../viewform">
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>Number of responses</label>
+            <input id="count" type="number" min="1" max="500" value="50">
+          </div>
+          <div class="field">
+            <label>Delay between submissions</label>
+            <div class="input-suffix"><input id="delay" type="number" min="100" max="10000" value="1000"><span>ms</span></div>
+          </div>
+        </div>
+
+        <div class="option-grid">
+          <div class="option-card active"><div class="option-check">✓</div><div><strong>Natural Random</strong><small>Uneven categorical distributions</small></div></div>
+          <div class="option-card"><div class="option-check">✓</div><div><strong>Preview First</strong><small>Review generated responses before testing</small></div></div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="analyzeBtn"><span>Analyze Form</span><b>→</b></button>
+        </div>
+        <div id="dashMsg" class="notice"></div>
+      </div>
+    </section>
+
+    <section id="analyzer" class="screen hidden">
+      <div class="panel">
+        <div class="panel-heading">
+          <div><span class="section-kicker">STEP 02</span><h2>Form Analyzer</h2></div>
+          <div class="mini-stat"><span id="statChoices">0</span> choice fields</div>
+        </div>
+        <div id="analysisState" class="notice">No form analyzed.</div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>#</th><th>Question</th><th>Type</th><th>Required</th></tr></thead>
+            <tbody id="questionRows"></tbody>
+          </table>
+        </div>
+        <div class="actions"><button class="btn primary" id="toGeneratorBtn">Continue to Generator <b>→</b></button></div>
+      </div>
+    </section>
+
+    <section id="generator" class="screen hidden">
+      <div class="split-panel">
+        <div class="panel generator-main">
+          <span class="section-kicker">STEP 03</span>
+          <h2>Response Generator</h2>
+          <p class="muted">Every generation creates a new uneven probability distribution for each categorical question. The first option is not permanently favored.</p>
+          <div class="feature-row"><span>✦</span><div><strong>Natural-random mode</strong><small>Designed to avoid artificial equal splits between choices.</small></div></div>
+          <button class="btn primary large" id="generateBtn">Generate Synthetic Responses <b>→</b></button>
+          <div id="genMsg" class="notice"></div>
+        </div>
+        <div class="panel generator-side">
+          <div class="side-number">01</div>
+          <h3>Fresh distribution</h3>
+          <p>Each run gets new random weights for each choice-based question.</p>
+          <div class="mini-bars"><i style="width:76%"></i><i style="width:38%"></i><i style="width:61%"></i><i style="width:24%"></i></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="preview" class="screen hidden">
+      <div class="panel">
+        <div class="panel-heading">
+          <div><span class="section-kicker">STEP 04</span><h2>Generated Preview</h2></div>
+          <span class="mode-chip">SYNTHETIC</span>
+        </div>
+        <p class="muted">Review the generated dataset and its categorical distribution before submitting.</p>
+        <div id="distributionList" class="distribution-list"></div>
+        <div class="divider"></div>
+        <div id="previewList"></div>
+        <div class="actions"><button class="btn primary" id="toSubmissionBtn">Continue to Test Submission <b>→</b></button></div>
+      </div>
+    </section>
+
+    <section id="submission" class="screen hidden">
+      <div class="panel">
+        <span class="section-kicker">STEP 05</span>
+        <h2>Test Submission</h2>
+        <div id="submitState" class="notice">Ready.</div>
+        <div class="progress"><div id="bar" class="bar"></div></div>
+        <div id="progressText" class="progress-text">0 / 0 processed</div>
+        <div class="actions">
+          <button id="runBtn" class="btn primary">Run Test <b>→</b></button>
+          <button id="stopBtn" class="btn danger" disabled>Stop</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="results" class="screen hidden">
+      <div class="grid">
+        <div class="card"><div class="label">Requested</div><div id="rRequested" class="stat">0</div></div>
+        <div class="card"><div class="label">Successful</div><div id="rSuccess" class="stat success">0</div></div>
+        <div class="card"><div class="label">Failed</div><div id="rFailed" class="stat error">0</div></div>
+        <div class="card"><div class="label">Mode</div><div class="stat stat-small">TEST</div></div>
+      </div>
+      <div class="panel result-panel">
+        <span class="section-kicker">RUN COMPLETE</span>
+        <h2>Test results</h2>
+        <div id="resultError" class="notice error"></div>
+        <div class="actions">
+          <button id="csvBtn" class="btn secondary">Export CSV</button>
+          <button id="againBtn" class="btn primary">Run Another Test <b>→</b></button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="/app.js" defer></script>
+</body>
+</html>
