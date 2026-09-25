@@ -41,7 +41,10 @@ const jsonFetch=async(url,options={})=>{
   const r=await fetch(url,options);
   let d=null;
   try{d=await r.json()}catch(_){throw new Error(`Server returned HTTP ${r.status}.`)}
-  if(!r.ok||d?.ok===false)throw new Error(d?.error||`Request failed (HTTP ${r.status}).`);
+  if(!r.ok||d?.ok===false){
+    const detail=d?.details||d?.message||d?.error;
+    throw new Error(detail?`${d?.message&&d.message!==detail?d.message+": ":""}${detail}`:`Request failed (HTTP ${r.status}).`);
+  }
   return d;
 };
 
