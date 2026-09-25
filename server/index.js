@@ -496,3 +496,12 @@ async function submitGoogleForm(form,response){
     return {ok:false,status:502,message:"Could not reach Google Forms.",details:e.message};
   }
 }
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`AI Form Test Bot: http://localhost:`);
+  });
+}
+
+module.exports = app;
+module.exports.app = app;
