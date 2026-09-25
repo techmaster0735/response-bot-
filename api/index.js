@@ -1,5 +1,14 @@
-const app = require("../server/index.js");
+ const loaded = require("../server/index.js");
 
-module.exports = function handler(req, res) {
-  return app(req, res);
-};
+const app =
+  typeof loaded === "function"
+    ? loaded
+    : loaded && typeof loaded.default === "function"
+      ? loaded.default
+      : null;
+
+if (!app) {
+  throw new Error("Could not load the Express application from server/index.js");
+}
+
+module.exports = app;
