@@ -1,14 +1,29 @@
- const loaded = require("../server/index.js");
+const loaded = require("../server/index.js");
 
-const app =
-  typeof loaded === "function"
-    ? loaded
-    : loaded && typeof loaded.default === "function"
-      ? loaded.default
-      : null;
+module.exports = function handler(req, res) {
+  const app =
+    typeof loaded === "function"
+      ? loaded
+      : loaded && typeof loaded.default === "function"
+        ? loaded.default
+        : loaded && typeof loaded.app === "function"
+          ? loaded.app
+          : loaded && typeof loaded.handle === "function"
+            ? loaded
+            : loaded && loaded.default && typeof loaded.default.handle === "function"
+              ? loaded.default
+              : null;
 
-if (!app) {
-  throw new Error("Could not load the Express application from server/index.js");
-}
+  if (!app) {
+    return res.status(500).json({
+      ok: false,
+      error: "Express application could not be loaded."
+    });
+  }
 
-module.exports = app;
+  if (typeof app === "function") {
+    return app(req, res);
+  }
+
+  return app.handle(req, res);
+};
