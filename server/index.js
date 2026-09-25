@@ -2,6 +2,7 @@ require("dotenv").config();
 const express=require("express");
 const cors=require("cors");
 const cheerio=require("cheerio");
+const path=require("path");
 
 const app=express();
 const PORT=process.env.PORT||3000;
@@ -12,7 +13,8 @@ app.use((req,res,next)=>{
   next();
 });
 app.use(express.json({limit:"4mb"}));
-app.use(express.static("public"));
+const publicDir=path.join(__dirname,"..","public");
+app.use(express.static(publicDir));
 
 const first=["Aarav","Aditya","Akash","Ananya","Arjun","Aisha","Diya","Ishaan","Kabir","Karan","Kavya","Meera","Neha","Nikhil","Pooja","Rahul","Riya","Rohan","Sahil","Sneha","Tanvi","Varun","Vikram","Yash","Priya","Manav","Nandini","Om","Sanya","Rohit"];
 const last=["Sharma","Patil","Deshmukh","Joshi","Kulkarni","Nair","Menon","Iyer","Pillai","Shetty","Shah","Mehta","Gupta","Verma","Jadhav","Pawar","Naik","Mishra","Singh","Kadam"];
@@ -394,5 +396,12 @@ app.post("/api/submit-one",async(req,res)=>{
   catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
-app.get("*",(req,res)=>res.sendFile(require("path").join(process.cwd(),"public","index.html")));
-app.listen(PORT,()=>console.log(`AI Form Test Bot: http://localhost:${PORT}`));
+app.get("*",(req,res)=>res.sendFile(path.join(publicDir,"index.html")));
+
+// Export the Express app for Vercel serverless functions.
+// Only start a local listener when this file is executed directly with Node.
+if(require.main===module){
+  app.listen(PORT,()=>console.log(`AI Form Test Bot: http://localhost:${PORT}`));
+}
+
+module.exports=app;

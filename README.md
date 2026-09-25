@@ -57,3 +57,12 @@ The analyzer now reads the Google Forms `FB_PUBLIC_LOAD_DATA_` metadata embedded
 - preserves hidden Google Forms metadata such as `fbzx` when present.
 
 The supplied responder URL is prefilled in the dashboard for the requested career-awareness form. Google Forms must still be published and configured to accept the responder access you intend to test. Google's current documentation explains that responders must have access to the published form and that limiting a form to one response requires sign-in. urlGoogle Forms publishing and responder settingshttps://support.google.com/docs/answer/2839588?hl=en
+
+
+## Vercel deployment (v5)
+
+This build is configured for Vercel. `api/index.js` exports the Express app as a Vercel Node function, and `vercel.json` rewrites both API and browser routes to that function. The app still runs locally with `npm start`.
+
+For Vercel, do not use `npm start` as the deployment start command; Vercel detects the Node function from `api/index.js`. Set `OPENAI_API_KEY` and `OPENAI_MODEL` in Vercel Environment Variables. Keep `.env` out of Git.
+
+After pushing this version to GitHub, redeploy the latest commit in Vercel. Then check `https://YOUR-DOMAIN/api/health`; it should return JSON with `ok: true`.
