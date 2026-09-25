@@ -440,13 +440,21 @@ function responseBodyHint(text){
 
 async function submitGoogleForm(form,response){
   const target=new URL(form.action);
-  if(target.protocol!=="https:" || target.hostname!=="docs.google.com" || !/^\/forms\/d\/e\/[^/]+\/formResponse$/.test(target.pathname)){
-    throw new Error("Invalid Google Forms submission endpoint. Re-analyze the published responder URL.");
+
+  if(
+    target.protocol!=="https:" ||
+    target.hostname!=="docs.google.com" ||
+    !/^\/forms\/d\/e\/[^/]+\/formResponse$/.test(target.pathname)
+  ){
+    throw new Error(
+      "Invalid Google Forms submission endpoint. Re-analyze the published responder URL."
+    );
   }
 
   const body=formDataFor(form,response);
+
   const headers={
-    "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8",
+    "Content-Type":"application/x-www-form-urlencoded",
     "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0 Safari/537.36",
     "Referer":form.url||target.href,
     "Origin":"https://docs.google.com",
@@ -456,10 +464,41 @@ async function submitGoogleForm(form,response){
   };
 
   try{
-    // One bounded request per response avoids Vercel timeouts and prevents accidental duplicate submissions.
-    const r=await fetchWithTimeout(target.href,{method:"POST",redirect:"follow",headers,body},7500);
+    const r=await fetchWithTimeout(
+      target.href,
+      {
+        method:"POST",
+        redirect:"manual",
+        headers,
+        body:body.toString()
+      },
+      7500
+    );
+
+    const location=r.headers.get("location")||"";
     const text=await r.text();
+
+    if(r.status>=300 && r.status<400 && location){
+      const finalUrl=new URL(location,target.href);
+
+      if(
+        finalUrl.hostname==="docs.google.com" &&
+        (
+          finalUrl.pathname.includes("/formResponse") ||
+          finalUrl.pathname.includes("/viewform")
+        )
+      ){
+        return {
+          ok:true,
+          status:r.status,
+          finalUrl:finalUrl.href,
+          message:"Submission accepted by Google Forms."
+        };
+      }
+    }
+
     const lower=text.toLowerCase();
+
     const rejected=[
       "this form is no longer accepting responses",
       "form not found",
@@ -468,6 +507,7 @@ async function submitGoogleForm(form,response){
       "there was a problem",
       "sign in to continue"
     ].some(x=>lower.includes(x));
+
     const recorded=[
       "your response has been recorded",
       "response recorded",
@@ -475,28 +515,68 @@ async function submitGoogleForm(form,response){
     ].some(x=>lower.includes(x));
 
     if(r.ok && !rejected && recorded){
-      return {ok:true,status:r.status,finalUrl:r.url,message:"Submission accepted by Google Forms."};
+      return {
+        ok:true,
+        status:r.status,
+        finalUrl:r.url,
+        message:"Submission accepted by Google Forms."
+      };
     }
 
     const hint=responseBodyHint(text);
+
     if(rejected){
-      return {ok:false,status:r.status,message:"Google Forms rejected the submission.",details:hint||"Google returned a rejection page."};
+      return {
+        ok:false,
+        status:r.status,
+        message:"Google Forms rejected the submission.",
+        details:hint||"Google returned a rejection page."
+      };
     }
+
     if(r.status===429){
-      return {ok:false,status:r.status,message:"Google Forms rate-limited the test request.",details:"Slow down the submission delay and try again later."};
+      return {
+        ok:false,
+        status:r.status,
+        message:"Google Forms rate-limited the test request.",
+        details:"Slow down the submission delay and try again later."
+      };
     }
+
     if(r.status>=500){
-      return {ok:false,status:r.status,message:`Google Forms returned HTTP ${r.status}.`,details:hint||"Google returned a temporary server/gateway error. No automatic retry was made to avoid duplicate submissions."};
+      return {
+        ok:false,
+        status:r.status,
+        message:`Google Forms returned HTTP ${r.status}.`,
+        details:hint||"Google returned a temporary server/gateway error."
+      };
     }
-    return {ok:false,status:r.status,message:"Google Forms did not confirm the submission.",details:hint||`Google returned HTTP ${r.status}, but no response-recorded confirmation was found.`};
+
+    return {
+      ok:false,
+      status:r.status,
+      message:"Google Forms did not confirm the submission.",
+      details:hint||`Google returned HTTP ${r.status}, but no confirmation was found.`
+    };
+
   }catch(e){
     if(e.name==="AbortError"){
-      return {ok:false,status:504,message:"Google Forms request timed out.",details:"The request exceeded 7.5 seconds. Increase the delay between submissions or try again later."};
+      return {
+        ok:false,
+        status:504,
+        message:"Google Forms request timed out.",
+        details:"The request exceeded 7.5 seconds."
+      };
     }
-    return {ok:false,status:502,message:"Could not reach Google Forms.",details:e.message};
+
+    return {
+      ok:false,
+      status:502,
+      message:"Could not reach Google Forms.",
+      details:e.message
+    };
   }
 }
-
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`AI Form Test Bot: http://localhost:`);
@@ -505,3 +585,26 @@ if (require.main === module) {
 
 module.exports = app;
 module.exports.app = app;
+
+app.post("/api/submit-one", async (req, res) => {
+  try {
+    const { form, response } = req.body || {};
+
+    if (!form || !response) {
+      return res.status(400).json({
+        ok: false,
+        message: "Missing form or response data."
+      });
+    }
+
+    const result = await submitGoogleForm(form, response);
+
+    return res.status(result.ok ? 200 : 502).json(result);
+  } catch (e) {
+    return res.status(500).json({
+      ok: false,
+      message: "Submission test failed.",
+      details: e.message
+    });
+  }
+});
